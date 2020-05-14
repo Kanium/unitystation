@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using Mirror;
 using Antagonists;
 
@@ -17,6 +15,8 @@ public class Mind
 	public bool IsGhosting;
 	public bool DenyCloning;
 	public int bodyMobID;
+	public StepType stepType = StepType.Barefoot;
+	public ChatModifier inventorySpeechModifiers = ChatModifier.None;
 	//Current way to check if it's not actually a ghost but a spectator, should set this not have it be the below.
 	public bool IsSpectator => occupation == null || body == null;
 
@@ -122,7 +122,7 @@ public class Mind
 				return CloneableStatus.StillAlive;
 			}
 		}
-		if (!IsOnline(currentMob))
+		if (!IsOnline())
 		{
 			return CloneableStatus.Offline;
 		}
@@ -130,9 +130,9 @@ public class Mind
 		return CloneableStatus.Cloneable;
 	}
 
-	public bool IsOnline(GameObject currentMob)
+	public bool IsOnline()
 	{
-		NetworkConnection connection = currentMob.GetComponent<NetworkIdentity>().connectionToClient;
+		NetworkConnection connection = GetCurrentMob().GetComponent<NetworkIdentity>().connectionToClient;
 		return PlayerList.Instance.ContainsConnection(connection);
 	}
 
@@ -144,5 +144,4 @@ public class Mind
 		if (!IsAntag) return;
 		Chat.AddExamineMsgFromServer(body.gameObject, Antag.GetObjectivesForPlayer());
 	}
-
 }

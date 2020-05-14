@@ -30,7 +30,6 @@ static class BuildScript
 	private static void PerformWindowsBuild()
 	{
 		//Always build windows client first so that build info can increment the build number
-		int buildNum = 0;
 		var buildInfo = JsonUtility.FromJson<BuildInfo>(File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "buildinfo.json")));
 		BuildInfo buildInfoUpdate = new BuildInfo();
 		if (File.Exists(Path.Combine(Application.streamingAssetsPath, "buildinfoupdate.json")))
@@ -204,7 +203,7 @@ static class BuildScript
 
 		if (target == BuildTarget.StandaloneLinux64)
 		{
-			buildOptions.options = BuildOptions.Development;
+			buildOptions.options |= BuildOptions.Development;
 		}
 
 		ReportOptions(buildOptions);

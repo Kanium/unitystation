@@ -9,8 +9,8 @@ public class GUI_Notification : MonoBehaviour
 {
 	public Dictionary<string, int> notifications = new Dictionary<string, int>();
 
-	[SerializeField] private Text label;
-	[SerializeField] private Image background;
+	[SerializeField] private Text label = null;
+	[SerializeField] private Image background = null;
 
 	private void OnEnable()
 	{
@@ -28,6 +28,10 @@ public class GUI_Notification : MonoBehaviour
 		}
 
 		notifications[key] += amountToAdd;
+		if (notifications[key] < 0)
+		{
+			notifications[key] = 0;
+		}
 		UpdateText();
 	}
 
@@ -59,7 +63,7 @@ public class GUI_Notification : MonoBehaviour
 		int count = 0;
 		foreach (var n in notifications)
 		{
-			count += n.Value;
+			count += Mathf.Clamp(n.Value, 0, 999);
 		}
 
 		label.text = count.ToString();

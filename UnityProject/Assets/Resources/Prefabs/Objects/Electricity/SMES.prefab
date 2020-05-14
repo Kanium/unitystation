@@ -45,6 +45,7 @@ SpriteRenderer:
   m_MotionVectors: 1
   m_LightProbeUsage: 0
   m_ReflectionProbeUsage: 0
+  m_RayTracingMode: 0
   m_RenderingLayerMask: 4294967295
   m_RendererPriority: 0
   m_Materials:
@@ -94,14 +95,16 @@ GameObject:
   - component: {fileID: 114038174743996046}
   - component: {fileID: 114703946515217786}
   - component: {fileID: -6323473989204236853}
+  - component: {fileID: 2683382063024116834}
   - component: {fileID: 114705152130084640}
   - component: {fileID: 1302529419740996430}
-  - component: {fileID: 2683382063024116834}
   - component: {fileID: 1502216706390324168}
   - component: {fileID: 2504760058904090374}
   - component: {fileID: 114897658894920132}
   - component: {fileID: 114429980035310924}
   - component: {fileID: 3432798136324343086}
+  - component: {fileID: -3958875245984225180}
+  - component: {fileID: 2733088097871749730}
   m_Layer: 11
   m_Name: SMES
   m_TagString: Untagged
@@ -224,9 +227,38 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f68d36ed5e334f99b82dc3801757e89, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  butcherKnifeTrait: {fileID: 0}
   butcherTime: 2
   butcherSound: BladeSlice
+--- !u!114 &2683382063024116834
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1575520830166772}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f382852d80b4a434f9d53c414fc2d72b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncMode: 0
+  syncInterval: 0.1
+  Node: {fileID: 1302529419740996430}
+  ApplianceType: 2
+  WireEndB: 9
+  WireEndA: 10
+  ListCanConnectTo: 04000000
+  SelfDestruct: 0
+  Reactions:
+  - ConnectingDevice: 4
+    DirectionReaction: 0
+    ResistanceReaction: 1
+    DirectionReactionA:
+      YouShallNotPass: 1
+    ResistanceReactionA:
+      Resistance:
+        Ohms: 1e+10
+        ResistanceAvailable: 1
 --- !u!114 &114705152130084640
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -274,55 +306,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   syncMode: 0
   syncInterval: 0.1
-  WireEndB: 9
-  WireEndA: 8
-  Data:
-    CurrentInWire: 0
-    ActualVoltage: 0
-    EstimatedResistance: 0
-    SupplyingCurrent: 0
-    InternalResistance: 0
-    SupplyingVoltage: 0
-    ChangeToOff: 0
-    CurrentStoreValue: 0
   InData:
+    WireEndB: 0
+    WireEndA: 0
     Categorytype: 0
     ControllingDevice: {fileID: 0}
-    DirectionOverride: 0
-    ResistanceOverride: 0
-    ElectricityOverride: 0
+    Present: {fileID: 0}
+    Data:
+      CurrentInWire: 0
+      ActualVoltage: 0
+      EstimatedResistance: 0
+      SupplyingCurrent: 0
+      InternalResistance: 0
+      SupplyingVoltage: 0
+      ChangeToOff: 0
+      CurrentStoreValue: 0
+    DestroyQueueing: 0
+    DestroyAuthorised: 0
   registerTile: {fileID: 0}
   connected: 0
   Logall: 0
-  registerTile3: {fileID: 114038174743996046}
---- !u!114 &2683382063024116834
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1575520830166772}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f382852d80b4a434f9d53c414fc2d72b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  syncMode: 0
-  syncInterval: 0.1
-  Node: {fileID: 1302529419740996430}
-  ApplianceType: 2
-  ListCanConnectTo: 04000000
-  SelfDestruct: 0
-  Reactions:
-  - ConnectingDevice: 4
-    DirectionReaction: 0
-    ResistanceReaction: 1
-    DirectionReactionA:
-      YouShallNotPass: 1
-    ResistanceReactionA:
-      Resistance:
-        Ohms: 1e+10
-        ResistanceAvailable: 1
 --- !u!114 &1502216706390324168
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -342,6 +345,9 @@ MonoBehaviour:
     ResistanceAvailable: 1
   EditorResistance: 0
   NotEditorResistanceset: 1
+  RR:
+    Ohms: 0
+    ResistanceAvailable: 1
   ReactionTo:
     ConnectingDevice: 1
     DirectionReaction: 0
@@ -366,6 +372,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ModuleType: 0
   ControllingNode: {fileID: 0}
+  StartOnStartUp: 0
   current: 0
   Previouscurrent: 0
   SupplyingVoltage: 0
@@ -410,6 +417,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spriteMatrixRotationBehavior: 1
+  ignoreExtraRotation: []
 --- !u!114 &114429980035310924
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -422,6 +430,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  isDirty: 0
   sceneId: 0
   serverOnly: 0
   m_AssetId: 
@@ -439,6 +448,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   syncMode: 0
   syncInterval: 0.1
+  soundOnHit: 
   Armor:
     Melee: 0
     Bullet: 0
@@ -460,6 +470,36 @@ MonoBehaviour:
     FreezeProof: 0
   HeatResistance: 100
   initialIntegrity: 100
+--- !u!114 &-3958875245984225180
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1575520830166772}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62cc3ef7cd9082443aaf3c255851d15a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &2733088097871749730
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1575520830166772}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec392d028bea6ad43b1fa1cbc45394ca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  MachineParts: {fileID: 11400000, guid: bdf456820020fe2479d8ead94758b8f1, type: 2}
+  framePrefab: {fileID: 5458395581066390877, guid: 72eb86d5ac08290448d10b535ea0d025,
+    type: 3}
+  machineBoardPrefab: {fileID: 372985771419607861, guid: 3882f9f8fa1bc0a48bcff27ead25d775,
+    type: 3}
+  secondsToScrewdrive: 2
 --- !u!1 &1610444276709522
 GameObject:
   m_ObjectHideFlags: 0
@@ -505,6 +545,7 @@ SpriteRenderer:
   m_MotionVectors: 1
   m_LightProbeUsage: 0
   m_ReflectionProbeUsage: 0
+  m_RayTracingMode: 0
   m_RenderingLayerMask: 4294967295
   m_RendererPriority: 0
   m_Materials:
@@ -585,6 +626,7 @@ SpriteRenderer:
   m_MotionVectors: 1
   m_LightProbeUsage: 0
   m_ReflectionProbeUsage: 0
+  m_RayTracingMode: 0
   m_RenderingLayerMask: 4294967295
   m_RendererPriority: 0
   m_Materials:
@@ -665,6 +707,7 @@ SpriteRenderer:
   m_MotionVectors: 1
   m_LightProbeUsage: 0
   m_ReflectionProbeUsage: 0
+  m_RayTracingMode: 0
   m_RenderingLayerMask: 4294967295
   m_RendererPriority: 0
   m_Materials:

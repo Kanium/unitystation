@@ -1,25 +1,27 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
+using Chemistry.Components;
 
 //Used when spawning the food
 [RequireComponent(typeof(CustomNetTransform))]
 [RequireComponent(typeof(ReagentContainer))]
 [DisallowMultipleComponent]
-public class GrownFood : NetworkBehaviour, IInteractable<HandActivate>
+public class GrownFood : NetworkBehaviour
 {
 	public PlantData plantData;
 	public ReagentContainer reagentContainer;
+	public Chemistry.Reagent nutrient;
 	public GameObject SeedPacket => seedPacket;
 
 	[SerializeField]
-	private GameObject seedPacket;
+	private GameObject seedPacket = null;
 	[SerializeField]
-	private SpriteRenderer SpriteSizeAdjustment;
+	private SpriteRenderer SpriteSizeAdjustment = null;
 	[SerializeField]
 	private SpriteHandler Sprite;
 	[SerializeField]
-	private Edible edible;
+	private Edible edible = null;
 
 
 
@@ -70,45 +72,16 @@ public class GrownFood : NetworkBehaviour, IInteractable<HandActivate>
 	/// </summary>
 	private void SetupChemicalContents()
 	{
-		List<string> nameList = new List<string>();
-		List<float> amountList = new List<float>();
-		for (int i = 0; i < reagentContainer.Amounts.Count; i++)
-		{
-			nameList.Add(reagentContainer.Reagents[i]);
-			amountList.Add(reagentContainer.Amounts[i] * plantData.Potency);
-		}
-		//Reset container
-		reagentContainer.ResetContents(nameList, amountList);
+		reagentContainer.Multiply(plantData.Potency);
 	}
 
 	/// <summary>
-	/// Set NutritionLevel to be equal to nuriment amount 
+	/// Set NutritionLevel to be equal to nuriment amount
 	/// </summary>
 	private void SetupEdible()
 	{
-		edible.NutritionLevel = Mathf.FloorToInt(reagentContainer.AmountOfReagent("nutriment"));
+		edible.NutritionLevel = Mathf.FloorToInt(reagentContainer[nutrient]);
 	}
-	
-	/// <summary>
-	/// Gets seeds for plant and replaces held food with seeds
-	/// DOES NOT WORK, eating overrides this.
-	/// </summary>
-	/// <param name="interaction"></param>
-	public void ServerPerformInteraction(HandActivate interaction)
-	{
-		if (plantData != null)
-		{
-			var seedObject = Spawn.ServerPrefab(this.seedPacket, interaction.Performer.RegisterTile().WorldPositionServer, parent: interaction.Performer.transform.parent).GameObject;
-			var seedPacket = seedObject.GetComponent<SeedPacket>();
-			seedPacket.plantData = PlantData.CreateNewPlant(plantData);
 
-			seedPacket.SyncPlant(null, plantData.Name);
-
-			var slot = interaction.HandSlot;
-			Inventory.ServerAdd(seedObject, interaction.HandSlot, ReplacementStrategy.DespawnOther);
-		}
-
-
-	}
 }
 

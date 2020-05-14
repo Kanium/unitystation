@@ -14,7 +14,7 @@ using UnityEngine.Profiling;
 /// Monitors and calculates health
 /// </summary>
 [RequireComponent(typeof(HealthStateMonitor))]
-public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireExposable, IExaminable
+public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireExposable, IExaminable, IServerSpawn
 {
 	private static readonly float GIB_THRESHOLD = 200f;
 	//damage incurred per tick per fire stack
@@ -45,7 +45,7 @@ public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireEx
 	public float cloningDamage;
 
 	/// <summary>
-	/// Serverside, used for gibbing bodies after certain amount of damage is received afer death
+	/// Serverside, used for gibbing bodies after certain amount of damage is received after death
 	/// </summary>
 	private float afterDeathDamage = 0f;
 
@@ -74,6 +74,10 @@ public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireEx
 	protected GameObject LastDamagedBy;
 
 	public event Action<GameObject> applyDamageEvent;
+
+	public event Action OnDeathNotifyEvent;
+
+	public float RTT;
 
 	public ConsciousState ConsciousState
 	{
@@ -203,6 +207,7 @@ public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireEx
 
 	public override void OnStartClient()
 	{
+		base.OnStartClient();
 		EnsureInit();
 		StartCoroutine(WaitForClientLoad());
 	}
@@ -362,7 +367,6 @@ public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireEx
 		{
 			return;
 		}
-		//TODO: determine and apply armor protection
 
 		var prevHealth = OverallHealth;
 
@@ -370,7 +374,7 @@ public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireEx
 
 		LastDamageType = damageType;
 		LastDamagedBy = damagedBy;
-		bodyPartBehaviour.ReceiveDamage(damageType, damage);
+		bodyPartBehaviour.ReceiveDamage(damageType, bodyPartBehaviour.armor.GetDamage(damage, attackType));
 		HealthBodyPartMessage.Send(gameObject, gameObject, bodyPartAim, bodyPartBehaviour.BruteDamage, bodyPartBehaviour.BurnDamage);
 
 		if (attackType == AttackType.Fire)
@@ -551,6 +555,7 @@ public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireEx
 		{
 			return;
 		}
+		OnDeathNotifyEvent?.Invoke();
 		afterDeathDamage = 0;
 		ConsciousState = ConsciousState.DEAD;
 		OnDeathActions();
@@ -693,6 +698,84 @@ public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireEx
 	}
 
 	/// ---------------------------
+	/// Electrocution Methods
+	/// ---------------------------
+	/// Note: Electrocution for players is extended in PlayerHealth deriviative.
+	/// This is a generic electrocution implementation that just deals damage.
+
+	/// <summary>
+	/// Electrocutes a mob, applying damage to the victim depending on the electrocution power.
+	/// </summary>
+	/// <param name="electrocution">The object containing all information for this electrocution</param>
+	/// <returns>Returns an ElectrocutionSeverity for when the following logic depends on the elctrocution severity.</returns>
+	public virtual LivingShockResponse Electrocute(Electrocution electrocution)
+	{
+		float resistance = ApproximateElectricalResistance(electrocution.Voltage);
+		float shockPower = Electrocution.CalculateShockPower(electrocution.Voltage, resistance);
+		var severity = GetElectrocutionSeverity(shockPower);
+
+		switch (severity)
+		{
+			case LivingShockResponse.None:
+				break;
+			case LivingShockResponse.Mild:
+				MildElectrocution(electrocution, shockPower);
+				break;
+			case LivingShockResponse.Painful:
+				PainfulElectrocution(electrocution, shockPower);
+				break;
+			case LivingShockResponse.Lethal:
+				LethalElectrocution(electrocution, shockPower);
+				break;
+		}
+
+		return severity;
+	}
+
+	/// <summary>
+	/// Finds the severity of the electrocution.
+	/// In the future, this would depend on the victim's size. For now, assume humanoid size.
+	/// </summary>
+	/// <param name="shockPower">The power of the electrocution determines the shock response </param>
+	protected virtual LivingShockResponse GetElectrocutionSeverity(float shockPower)
+	{
+		LivingShockResponse severity;
+
+		if (shockPower >= 0.01 && shockPower < 1) severity = LivingShockResponse.Mild;
+		else if (shockPower >= 1 && shockPower < 100) severity = LivingShockResponse.Painful;
+		else if (shockPower >= 100) severity = LivingShockResponse.Lethal;
+		else severity = LivingShockResponse.None;
+
+		return severity;
+	}
+
+	// Overrideable for custom electrical resistance calculations.
+	protected virtual float ApproximateElectricalResistance(float voltage)
+	{
+		// TODO: Approximate mob's electrical resistance based on mob size.
+		return 500;
+	}
+
+	protected virtual void MildElectrocution(Electrocution electrocution, float shockPower)
+	{
+		return;
+	}
+
+	protected virtual void PainfulElectrocution(Electrocution electrocution, float shockPower)
+	{
+		LethalElectrocution(electrocution, shockPower);
+	}
+
+	protected virtual void LethalElectrocution(Electrocution electrocution, float shockPower)
+	{
+		// TODO: Add sparks VFX at shockSourcePos.
+		SoundManager.PlayNetworkedAtPos("Sparks#", electrocution.ShockSourcePos);
+
+		float damage = shockPower;
+		ApplyDamage(null, damage, AttackType.Internal, DamageType.Burn);
+	}
+
+	/// ---------------------------
 	/// MISC Functions:
 	/// ---------------------------
 
@@ -767,20 +850,20 @@ public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireEx
 	/// figure out what to pass to the client, based on many parameters such as
 	/// role, medical skill (if they get implemented), equipped medical scanners,
 	/// etc. In principle takes care of building the string from start to finish,
-	/// so logic generating examine text can be completely separate from examine 
+	/// so logic generating examine text can be completely separate from examine
 	/// request or netmessage processing.
 	/// </summary>
 	public string Examine(Vector3 worldPos)
 	{
 		var healthFraction = OverallHealth/maxHealth;
 		var healthString  = "";
-		
+
 		if (!IsDead)
 		{
 			if (healthFraction < 0.2f)
 			{
 				healthString = "heavily wounded.";
-			}			
+			}
 			else if (healthFraction < 0.6f)
 			{
 				healthString = "wounded.";
@@ -814,6 +897,14 @@ public abstract class LivingHealthBehaviour : NetworkBehaviour, IHealth, IFireEx
 
 		healthString = pronoun + " is " + healthString + (respiratorySystem.IsSuffocating && !IsDead ? " " + pronoun + " is having trouble breathing!" : "");
 		return healthString;
+	}
+
+	public void OnSpawnServer(SpawnInfo info)
+	{
+		ConsciousState = ConsciousState.CONSCIOUS;
+		OverallHealth = maxHealth;
+		ResetBodyParts();
+		CalculateOverallHealth();
 	}
 }
 

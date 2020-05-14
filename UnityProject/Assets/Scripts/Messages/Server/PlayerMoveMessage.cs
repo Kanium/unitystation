@@ -5,21 +5,21 @@ using Mirror;
 ///   Tells client to apply PlayerState (update his position, flight direction etc) to the given player
 public class PlayerMoveMessage : ServerMessage
 {
-	public static short MessageType = (short) MessageTypes.PlayerMoveMessage;
 	public PlayerState State;
 	/// Player to be moved
 	public uint SubjectPlayer;
 
 	///To be run on client
-	public override IEnumerator Process()
+	public override void Process()
 	{
-		yield return WaitFor(SubjectPlayer);
+		LoadNetworkObject(SubjectPlayer);
 
-		if ( NetworkObject == null ) {
-			yield break;
+		if ( NetworkObject == null )
+		{
+			return;
 		}
-		Logger.LogTraceFormat("Processed {1}'s state: {0}", Category.Movement, this, NetworkObject.name);
 
+		Logger.LogTraceFormat("Processed {1}'s state: {0}", Category.Movement, this, NetworkObject.name);
 		var playerSync = NetworkObject.GetComponent<PlayerSync>();
 		playerSync.UpdateClientState(State);
 
@@ -37,7 +37,6 @@ public class PlayerMoveMessage : ServerMessage
 
 			ControlTabs.CheckTabClose();
 		}
-
 	}
 
 	public static PlayerMoveMessage Send(GameObject recipient, GameObject subjectPlayer, PlayerState state)

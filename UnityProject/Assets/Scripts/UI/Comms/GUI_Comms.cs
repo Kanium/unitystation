@@ -37,6 +37,8 @@ public class GUI_Comms : NetTab
 	private NetLabel CurrentAlertLevelLabel = null;
 	[SerializeField]
 	private NetLabel NewAlertLevelLabel = null;
+	[SerializeField]
+	private NetLabel AlertErrorLabel = null;
 
 	private CommsConsole console;
 	private EscapeShuttle shuttle;
@@ -76,16 +78,16 @@ public class GUI_Comms : NetTab
 		console.OnServerIDCardChanged.AddListener( ProcessIdChange );
 		shuttle = GameManager.Instance.PrimaryEscapeShuttle;
 
-		shuttleStatusLabel.SetValue = shuttle.Status.ToString();
+		shuttleStatusLabel.SetValueServer(shuttle.Status.ToString());
 		statusImage.SetComplicatedValue( "shuttle_status", (int)shuttle.Status );
 		shuttle.OnShuttleUpdate.AddListener( status =>
 		{
 			statusImage.SetComplicatedValue( "shuttle_status", (int)status );
-			shuttleStatusLabel.SetValue = status.ToString();
+			shuttleStatusLabel.SetValueServer(status.ToString());
 		} );
 
-		shuttleTimerLabel.SetValue = FormatTime( shuttle.CurrentTimerSeconds );
-		shuttle.OnTimerUpdate.AddListener( timerSeconds =>{ shuttleTimerLabel.SetValue = FormatTime( timerSeconds ); } );
+		shuttleTimerLabel.SetValueServer(FormatTime( shuttle.CurrentTimerSeconds ));
+		shuttle.OnTimerUpdate.AddListener( timerSeconds =>{ shuttleTimerLabel.SetValueServer(FormatTime( timerSeconds )); } );
 
 		RefreshCallButtonText();
 
@@ -111,7 +113,7 @@ public class GUI_Comms : NetTab
 
 		bool isRecall = shuttle.Status == ShuttleStatus.OnRouteStation;
 
-		
+
 
 		string callResult;
 		bool ok;
@@ -154,15 +156,14 @@ public class GUI_Comms : NetTab
 
 	private void RefreshCallButtonText()
 	{
-		shuttleCallButtonLabel.SetValue =
-			shuttle.Status == ShuttleStatus.OnRouteStation ? "Recall Emergency Shuttle" : "Call Emergency Shuttle";
+		shuttleCallButtonLabel.SetValueServer(shuttle.Status == ShuttleStatus.OnRouteStation ? "Recall Emergency Shuttle" : "Call Emergency Shuttle");
 	}
 
 	private IEnumerator ShowSubmitResult( string callResult )
 	{
-		shuttleCallResultLabel.SetValue = callResult;
+		shuttleCallResultLabel.SetValueServer(callResult);
 		yield return WaitFor.Seconds( 3 );
-		shuttleCallResultLabel.SetValue = String.Empty;
+		shuttleCallResultLabel.SetValueServer(String.Empty);
 	}
 
 	public void SetStatusDisplay(string text)
@@ -175,25 +176,55 @@ public class GUI_Comms : NetTab
 	public void MakeAnAnnouncement(string text)
 	{
 		Logger.Log( nameof(MakeAnAnnouncement), Category.NetUI );
-		CentComm.MakeAnnouncement(CentComm.CaptainAnnounceTemplate, text, CentComm.UpdateSound.announce);
+		if (text.Length>200)
+		{
+			CentComm.MakeAnnouncement(CentComm.CaptainAnnounceTemplate, text.Substring(0, 200), CentComm.UpdateSound.announce);
+		}
+		else
+		{
+			CentComm.MakeAnnouncement(CentComm.CaptainAnnounceTemplate, text ,CentComm.UpdateSound.announce);
+		}
 		OpenMenu();
 	}
-	
+
 	public void UpdateAlertLevelLabels()
 	{
-		CurrentAlertLevelLabel.SetValue = GameManager.Instance.CentComm.CurrentAlertLevel.ToString().ToUpper();
-		NewAlertLevelLabel.SetValue = LocalAlertLevel.ToString().ToUpper();
+		CurrentAlertLevelLabel.SetValueServer(GameManager.Instance.CentComm.CurrentAlertLevel.ToString().ToUpper());
+		NewAlertLevelLabel.SetValueServer(LocalAlertLevel.ToString().ToUpper());
 	}
 	public void ChangeAlertLevel()
 	{
+		if (GameManager.Instance.stationTime < GameManager.Instance.CentComm.lastAlertChange.AddMinutes(
+			GameManager.Instance.CentComm.coolDownAlertChange))
+		{
+			StartCoroutine(DisplayAlertErrorMessage("Error: recent alert level change detected!"));
+			return;
+		}
+
 		Logger.Log( nameof(ChangeAlertLevel), Category.NetUI );
+		GameManager.Instance.CentComm.lastAlertChange = GameManager.Instance.stationTime;
 		GameManager.Instance.CentComm.ChangeAlertLevel(LocalAlertLevel);
 
 		OpenMenu();
 	}
 
+	IEnumerator DisplayAlertErrorMessage(string text)
+	{
+		AlertErrorLabel.SetValueServer(text);
+		for (int _i = 0; _i < 5; _i++)
+		{
+			yield return WaitFor.Seconds(1);
+			AlertErrorLabel.SetValueServer("");
+			yield return WaitFor.Seconds(1);
+			AlertErrorLabel.SetValueServer(text);
+		}
+		AlertErrorLabel.SetValueServer("");
+		yield break;
+	}
+
 	public void SelectAlertLevel(string levelName)
 	{
+		//TODO require 2 ID's to change to red level
 		LocalAlertLevel =
 			(CentComm.AlertLevel)Enum.Parse(typeof(CentComm.AlertLevel), levelName);
 	}
@@ -218,11 +249,11 @@ public class GUI_Comms : NetTab
 		var IdCard = console.IdCard;
 		if (IdCard)
 		{
-			idLabel.SetValue = $"{IdCard.RegisteredName}, {IdCard.JobType.ToString()}";
+			idLabel.SetValueServer($"{IdCard.RegisteredName}, {IdCard.JobType.ToString()}");
 		}
 		else
 		{
-			idLabel.SetValue = "<No ID inserted>";
+			idLabel.SetValueServer("<No ID inserted>");
 		}
 	}
 
@@ -235,7 +266,7 @@ public class GUI_Comms : NetTab
 
 		if ( !console.IdCard.HasAccess(Access.heads) )
 		{
-			idLabel.SetValue = idLabel.Value + " (No access)";
+			idLabel.SetValueServer(idLabel.Value + " (No access)");
 			return;
 		}
 

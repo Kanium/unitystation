@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
+using Chemistry.Components;
 
 [RequireComponent(typeof(Pickupable))]
 public class FireExtinguisher : NetworkBehaviour, IServerSpawn,
@@ -17,8 +18,8 @@ public class FireExtinguisher : NetworkBehaviour, IServerSpawn,
 	public Pickupable pickupable;
 
 	[SerializeField]
-	[Range(1,50)]
-	private int reagentsPerUse = 5;
+	[Range(1, 50)]
+	private int reagentsPerUse = 1;
 
 	public SpriteRenderer spriteRenderer;
 	[SyncVar(hook = nameof(SyncSprite))] public int spriteSync;
@@ -37,7 +38,7 @@ public class FireExtinguisher : NetworkBehaviour, IServerSpawn,
 
 	private void EnsureInit()
 	{
-		if ( !pickupable )
+		if (!pickupable)
 		{
 			pickupable = GetComponent<Pickupable>();
 		}
@@ -75,12 +76,12 @@ public class FireExtinguisher : NetworkBehaviour, IServerSpawn,
 
 	public void ServerPerformInteraction(AimApply interaction)
 	{
-		if ( reagentContainer.CurrentCapacity < reagentsPerUse || safety )
+		if (reagentContainer.ReagentMixTotal < reagentsPerUse || safety)
 		{
 			return;
 		}
 
-		Vector2	startPos = gameObject.AssumedWorldPosServer();
+		Vector2 startPos = gameObject.AssumedWorldPosServer();
 		Vector2 targetPos = interaction.WorldPositionTarget.To2Int();
 		List<Vector3Int> positionList = CheckPassableTiles(startPos, targetPos);
 		StartCoroutine(Fire(positionList));
@@ -93,10 +94,9 @@ public class FireExtinguisher : NetworkBehaviour, IServerSpawn,
 		positionList = CheckPassableTiles(points[0], points[1]);
 		StartCoroutine(Fire(positionList));
 
-		Effect.PlayParticleDirectional( this.gameObject, interaction.TargetVector );
+		Effect.PlayParticleDirectional(this.gameObject, interaction.TargetVector);
 
 		SoundManager.PlayNetworkedAtPos("Extinguish", startPos, 1, sourceObj: interaction.Performer);
-		reagentContainer.TakeReagents(reagentsPerUse);
 
 		interaction.Performer.Pushable()?.NewtonianMove((-interaction.TargetVector).NormalizeToInt());
 	}
@@ -123,7 +123,7 @@ public class FireExtinguisher : NetworkBehaviour, IServerSpawn,
 
 		paralelStart = new Vector2(Mathf.RoundToInt(paralelStart.x), Mathf.RoundToInt(paralelStart.y));
 		paralelTarget = new Vector2(Mathf.RoundToInt(paralelTarget.x), Mathf.RoundToInt(paralelTarget.y));
-		var points = new Vector2[] {paralelStart, paralelTarget};
+		var points = new Vector2[] { paralelStart, paralelTarget };
 		return points;
 	}
 
@@ -138,9 +138,7 @@ public class FireExtinguisher : NetworkBehaviour, IServerSpawn,
 
 	void ExtinguishTile(Vector3Int worldPos)
 	{
-		//it actually uses remaining contents to react with world
-		//instead of the sprayed ones. not sure if this is right
-		MatrixManager.ReagentReact(reagentContainer.Contents, worldPos);
+		reagentContainer.Spill(worldPos, reagentsPerUse);
 	}
 
 	public void SyncSprite(int oldValue, int value)
@@ -157,7 +155,7 @@ public class FireExtinguisher : NetworkBehaviour, IServerSpawn,
 		List<Vector3Int> positionList = MatrixManager.GetTiles(startPos, targetPos, travelDistance);
 		for (int i = 0; i < positionList.Count; i++)
 		{
-			if (!MatrixManager.IsAtmosPassableAt(positionList[i],true))
+			if (!MatrixManager.IsAtmosPassableAt(positionList[i], true))
 			{
 				return passableTiles;
 			}

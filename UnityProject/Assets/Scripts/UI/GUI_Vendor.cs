@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Experimental.PlayerLoop;
 using Random = UnityEngine.Random;
 
 public class GUI_Vendor : NetTab
@@ -44,7 +43,7 @@ public class GUI_Vendor : NetTab
 			yield return WaitFor.EndOfFrame;
 		}
 		vendor = Provider.GetComponent<Vendor>();
-		hullColor.SetValue = ColorUtility.ToHtmlStringRGB(vendor.HullColor);
+		hullColor.SetValueServer(vendor.HullColor);
 		inited = true;
 		GenerateContentList();
 		UpdateList();

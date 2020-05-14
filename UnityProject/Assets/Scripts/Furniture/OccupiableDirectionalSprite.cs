@@ -74,14 +74,9 @@ public class OccupiableDirectionalSprite : NetworkBehaviour
 	/// </summary>
 	public PlayerScript OccupantPlayerScript => occupantPlayerScript;
 
-	public void Awake()
-	{
-		EnsureInit();
-	}
-
 	private void EnsureInit()
 	{
-		if (directional != null) return;
+		if (directional != null || gameObject == null) return;
 		directional = GetComponent<Directional>();
 		directional.OnDirectionChange.AddListener(OnDirectionChanged);
 		OnDirectionChanged(directional.CurrentDirection);
@@ -110,11 +105,18 @@ public class OccupiableDirectionalSprite : NetworkBehaviour
 		EnsureInit();
 		//must invoke this because SyncVar hooks are not called on client init
 		SyncOccupantNetId(occupantNetId, occupantNetId);
-		OnDirectionChanged(directional.CurrentDirection);
+		OnDirectionChanged(directional.InitialOrientation);
+	}
+
+	public override void OnStartServer()
+	{
+		EnsureInit();
+		OnDirectionChanged(directional.InitialOrientation);
 	}
 
 	private void OnDirectionChanged(Orientation newDir)
 	{
+		if (spriteRenderer == null) spriteRenderer = GetComponent<SpriteRenderer>();
 		if (newDir == Orientation.Up)
 		{
 			spriteRenderer.sprite = Up;
@@ -219,6 +221,7 @@ public class OccupiableDirectionalSprite : NetworkBehaviour
 		if (Application.isEditor && !Application.isPlaying)
 		{
 			var dir = GetComponent<Directional>().InitialOrientation;
+			if (spriteRenderer == null) spriteRenderer = GetComponent<SpriteRenderer>();
 			if (dir == Orientation.Up)
 			{
 				spriteRenderer.sprite = Up;

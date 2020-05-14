@@ -9,7 +9,7 @@ namespace AdminTools
 	public class AdminPlayerEntry : MonoBehaviour
 	{
 		private Action<AdminPlayerEntry> OnClickEvent;
-		[SerializeField] private Text displayName = null;
+		public Text displayName = null;
 		[SerializeField] private Image bg = null;
 		//The notification counter on the button
 		public GUI_Notification pendingMsgNotification = null;
@@ -30,7 +30,7 @@ namespace AdminTools
 			parentNotification = masterNotification;
 			OnClickEvent = onClickEvent;
 			PlayerData = playerEntryData;
-			displayName.text = $"{playerEntryData.name} - {playerEntryData.currentJob}. ACC: {playerEntryData.accountName} {playerEntryData.ipAddress}";
+			displayName.text = $"{playerEntryData.name} - {playerEntryData.currentJob}. ACC: {playerEntryData.accountName} {playerEntryData.ipAddress} UUID { playerEntryData.uid}";
 
 			if (PlayerData.isAntag)
 			{

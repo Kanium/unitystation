@@ -3,13 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using ConnectionConfig = UnityEngine.Networking.ConnectionConfig;
 using Mirror;
-using UnityEngine.Profiling;
-using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
-using Object = UnityEngine.Object;
 using UnityEngine.Events;
+using DatabaseAPI;
 
 public class CustomNetworkManager : NetworkManager
 {
@@ -18,6 +15,7 @@ public class CustomNetworkManager : NetworkManager
 	public static CustomNetworkManager Instance;
 
 	[HideInInspector] public bool _isServer;
+	[HideInInspector] private ServerConfig config;
 	public GameObject humanPlayerPrefab;
 	public GameObject ghostPrefab;
 	public GameObject disconnectedViewerPrefab;
@@ -31,7 +29,7 @@ public class CustomNetworkManager : NetworkManager
 	[NonSerialized]
 	public UnityEvent OnClientDisconnected = new UnityEvent();
 
-	public override void Awake()
+	void Awake()
 	{
 		if (Instance == null)
 		{
@@ -45,16 +43,64 @@ public class CustomNetworkManager : NetworkManager
 
 	public override void Start()
 	{
-		SetSpawnableList();
-
+		CheckTransport();
+		ApplyConfig();
 		//Automatically host if starting up game *not* from lobby
-		if (SceneManager.GetActiveScene().name != offlineScene)
+		if (SceneManager.GetActiveScene().name != "Lobby")
 		{
 			StartHost();
 		}
 	}
 
-	private void SetSpawnableList()
+	void CheckTransport()
+	{
+		var booster = GetComponent<BoosterTransport>();
+		if (booster != null)
+		{
+			if (transport == booster)
+			{
+				var beamPath = Path.Combine(Application.streamingAssetsPath, "booster.bytes");
+				if (File.Exists(beamPath))
+				{
+					booster.beamData = File.ReadAllBytes(beamPath);
+					Logger.Log("Beam data found, loading booster transport..");
+				}
+				else
+				{
+					var telepathy = GetComponent<TelepathyTransport>();
+					if (telepathy != null)
+					{
+						Logger.Log("No beam data found. Falling back to Telepathy");
+						transport = telepathy;
+					}
+				}
+			}
+		}
+	}
+
+	void ApplyConfig()
+	{
+		config = ServerData.ServerConfig;
+		if (config.ServerPort != 0 && config.ServerPort <= 65535)
+		{
+			Logger.LogFormat("ServerPort defined in config: {0}", Category.Server, config.ServerPort);
+			var booster = GetComponent<BoosterTransport>();
+			if (booster != null)
+			{
+				booster.port = (ushort)config.ServerPort;
+			}
+			else
+			{
+				var telepathy = GetComponent<TelepathyTransport>();
+				if (telepathy != null)
+				{
+					telepathy.port = (ushort)config.ServerPort;
+				}
+			}
+		}
+	}
+
+	public void SetSpawnableList()
 	{
 		spawnPrefabs.Clear();
 
@@ -102,7 +148,7 @@ public class CustomNetworkManager : NetworkManager
 	{
 		_isServer = true;
 		base.OnStartServer();
-		this.RegisterServerHandlers();
+		NetworkManagerExtensions.RegisterServerHandlers();
 		// Fixes loading directly into the station scene
 		if (GameManager.Instance.LoadedDirectlyToStation)
 		{
@@ -124,6 +170,7 @@ public class CustomNetworkManager : NetworkManager
 
 		Logger.LogFormat("Client connecting to server {0}", Category.Connections, conn);
 		base.OnServerAddPlayer(conn);
+		SubSceneManager.Instance.AddNewObserverScenePermissions(conn);
 		UpdateRoundTimeMessage.Send(GameManager.Instance.stationTime.ToString("O"));
 	}
 
@@ -132,7 +179,7 @@ public class CustomNetworkManager : NetworkManager
 	{
 		Logger.LogFormat("We (the client) connected to the server {0}", Category.Connections, conn);
 		//Does this need to happen all the time? OnClientConnect can be called multiple times
-		this.RegisterClientHandlers(conn);
+		NetworkManagerExtensions.RegisterClientHandlers();
 
 		base.OnClientConnect(conn);
 	}
@@ -141,58 +188,6 @@ public class CustomNetworkManager : NetworkManager
 	{
 		base.OnClientDisconnect(conn);
 		OnClientDisconnected.Invoke();
-	}
-
-	///Sync some position data explicitly, if it is required
-	/// Warning: sending a lot of data, make sure client receives it only once
-	public void SyncPlayerData(GameObject playerGameObject)
-	{
-		Logger.LogFormat("SyncPlayerData (the big one). This server sending a bunch of sync data to new client {0}", Category.Connections, playerGameObject);
-		//All matrices
-		MatrixMove[] matrices = FindObjectsOfType<MatrixMove>();
-		for (var i = 0; i < matrices.Length; i++)
-		{
-			matrices[i].NotifyPlayer(playerGameObject, true);
-		}
-
-		//All transforms
-		CustomNetTransform[] scripts = FindObjectsOfType<CustomNetTransform>();
-		for (var i = 0; i < scripts.Length; i++)
-		{
-			scripts[i].NotifyPlayer(playerGameObject);
-		}
-
-		//All player bodies
-		PlayerSync[] playerBodies = FindObjectsOfType<PlayerSync>();
-		for (var i = 0; i < playerBodies.Length; i++)
-		{
-			var playerBody = playerBodies[i];
-			playerBody.NotifyPlayer(playerGameObject, true);
-			var playerSprites = playerBody.GetComponent<PlayerSprites>();
-			if (playerSprites)
-			{
-				playerSprites.NotifyPlayer(playerGameObject);
-			}
-			var equipment = playerBody.GetComponent<Equipment>();
-			if (equipment)
-			{
-				equipment.NotifyPlayer(playerGameObject);
-			}
-		}
-		//TileChange Data
-		TileChangeManager[] tcManagers = FindObjectsOfType<TileChangeManager>();
-		for (var i = 0; i < tcManagers.Length; i++)
-		{
-			tcManagers[i].NotifyPlayer(playerGameObject);
-		}
-
-		//Doors
-		DoorController[] doors = FindObjectsOfType<DoorController>();
-		for (var i = 0; i < doors.Length; i++)
-		{
-			doors[i].NotifyPlayer(playerGameObject);
-		}
-		Logger.Log($"Sent sync data ({matrices.Length} matrices, {scripts.Length} transforms, {playerBodies.Length} players) to {playerGameObject.name}", Category.Connections);
 	}
 
 	public override void OnServerConnect(NetworkConnection conn)
@@ -252,17 +247,7 @@ public class CustomNetworkManager : NetworkManager
 	private IEnumerator DoHeadlessCheck()
 	{
 		yield return WaitFor.Seconds(0.1f);
-		if (!GameData.IsHeadlessServer && !GameData.Instance.testServer)
-		{
-			if (!IsClientConnected())
-			{
-				//				if (GameData.IsInGame) {
-				//					UIManager.Display.logInWindow.SetActive(true);
-				//				}
-				UIManager.Display.jobSelectWindow.SetActive(false);
-			}
-		}
-		else
+		if (GameData.IsHeadlessServer && GameData.Instance.testServer)
 		{
 			//Set up for headless mode stuff here
 			//Useful for turning on and off components
@@ -277,8 +262,8 @@ public class CustomNetworkManager : NetworkManager
 		// (when pressing Stop in the Editor, Unity keeps threads alive
 		//  until we press Start again. so if Transports use threads, we
 		//  really want them to end now and not after next start)
-		TelepathyTransport telepathy = GetComponent<TelepathyTransport>();
-		telepathy.Shutdown();
+		var transport = GetComponent<Transport>();
+		transport.Shutdown();
 	}
 
 	//Editor item transform dance experiments

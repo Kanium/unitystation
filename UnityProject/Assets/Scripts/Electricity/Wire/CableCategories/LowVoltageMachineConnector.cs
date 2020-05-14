@@ -4,7 +4,7 @@ using UnityEngine;
 using Mirror;
 
 
-public class LowVoltageMachineConnector : NetworkBehaviour  , ICheckedInteractable<PositionalHandApply>, IDeviceControl
+public class LowVoltageMachineConnector : NetworkBehaviour  , ICheckedInteractable<PositionalHandApply>
 {
 	private bool SelfDestruct = false;
 
@@ -27,16 +27,8 @@ public class LowVoltageMachineConnector : NetworkBehaviour  , ICheckedInteractab
 		base.OnStartServer();
 		RelatedWire.InData.CanConnectTo = CanConnectTo;
 		RelatedWire.InData.Categorytype = ApplianceType;
-		RelatedWire.WireEndA = Connection.MachineConnect;
-		RelatedWire.WireEndB = Connection.Overlap;
-	}
-
-	//Fixme:
-	public void OnDestroy(){
-		SelfDestruct = true;
-
-	}
-	public void TurnOffCleanup (){
+		RelatedWire.InData.WireEndA = Connection.MachineConnect;
+		RelatedWire.InData.WireEndB = Connection.Overlap;
 	}
 
 	public bool WillInteract(PositionalHandApply interaction, NetworkSide side)
@@ -53,17 +45,12 @@ public class LowVoltageMachineConnector : NetworkBehaviour  , ICheckedInteractab
 		Vector3Int worldPosInt = interaction.WorldPositionTarget.To2Int().To3Int();
 		MatrixInfo matrix = MatrixManager.AtPoint(worldPosInt, true);
 		var localPosInt = MatrixManager.WorldToLocalInt(worldPosInt, matrix);
-		if (matrix.Matrix != null)
-		{
-			if (!matrix.Matrix.IsClearUnderfloorConstruction(localPosInt, true))
-			{
-				return;
-			}
-		}
-		else
+
+		if (matrix.Matrix == null || !matrix.Matrix.IsClearUnderfloorConstruction(localPosInt, true))
 		{
 			return;
 		}
+
 		Spawn.ServerPrefab("Low machine connector", gameObject.AssumedWorldPosServer());
 		Despawn.ServerSingle(gameObject);
 	}

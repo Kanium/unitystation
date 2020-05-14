@@ -18,6 +18,7 @@ public class AtmosManager : MonoBehaviour
 
 	public bool roundStartedServer = false;
 	public HashSet<Pipe> inGamePipes = new HashSet<Pipe>();
+	public HashSet<FireAlarm> inGameFireAlarms = new HashSet<FireAlarm>();
 	public static int currentTick;
 	public static float tickRateComplete = 1f; //currently set to update every second
 	public static float tickRate;
@@ -35,14 +36,6 @@ public class AtmosManager : MonoBehaviour
 		else
 		{
 			Destroy(this);
-		}
-	}
-
-	private void Start()
-	{
-		if (Mode != AtmosMode.Manual)
-		{
-			StartSimulation();
 		}
 	}
 
@@ -86,6 +79,11 @@ public class AtmosManager : MonoBehaviour
 		{
 			p.TickUpdate();
 		}
+
+		foreach (FireAlarm firealarm in inGameFireAlarms)
+		{
+			firealarm.TickUpdate();
+		}
 	}
 
 	void OnEnable()
@@ -104,6 +102,10 @@ public class AtmosManager : MonoBehaviour
 
 	void OnRoundStart()
 	{
+		if (Mode != AtmosMode.Manual)
+		{
+			StartSimulation();
+		}
 		StartCoroutine(SetPipes());
 	}
 
@@ -132,6 +134,8 @@ public class AtmosManager : MonoBehaviour
 
 	public void StartSimulation()
 	{
+		if (!CustomNetworkManager.Instance._isServer) return;
+
 		Running = true;
 
 		if (Mode == AtmosMode.Threaded)
@@ -143,6 +147,8 @@ public class AtmosManager : MonoBehaviour
 
 	public void StopSimulation()
 	{
+		if (!CustomNetworkManager.Instance._isServer) return;
+
 		Running = false;
 
 		AtmosThread.Stop();
@@ -165,6 +171,7 @@ public class AtmosManager : MonoBehaviour
 			roundStartedServer = false;
 		}
 		inGamePipes.Clear();
+		inGameFireAlarms.Clear();
 	}
 }
 

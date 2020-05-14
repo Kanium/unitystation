@@ -3,6 +3,7 @@ using UnityEngine;
 using System.IO;
 using UnityEditor;
 using Newtonsoft.Json;
+using Chemistry.Components;
 
 public class GeneratePlantSOs : EditorWindow
 {
@@ -19,7 +20,7 @@ public class GeneratePlantSOs : EditorWindow
 		dictonaryErrors = new Dictionary<string, string>();
 		var PlantDictionary = new Dictionary<string, DefaultPlantData>();
 		var PlantDictionaryObject = new Dictionary<string, System.Object>();
-		
+
 		foreach (FileInfo file in Files)
 		{
 			ListFiles.Add(file.Name);
@@ -111,7 +112,7 @@ public class GeneratePlantSOs : EditorWindow
 			plantdata.GrowthSprites = new List<SpriteSheetAndData>();
 			foreach (var ListFile in ListFiles)
 			{
-				
+
 				if (ListFile.Contains(species))
 				{
 					var Namecheck = ListFile;
@@ -158,7 +159,7 @@ public class GeneratePlantSOs : EditorWindow
 						plantdata.FullyGrownSprite = plantdata.GrowthSprites[plantdata.GrowthSprites.Count - 1];
 					}
 				}
-				
+
 				progressbarState += progressbarStep;
 			}
 			//check if sprites are missing
@@ -167,7 +168,7 @@ public class GeneratePlantSOs : EditorWindow
 			if (plantdata.DeadSprite.Texture == null) { AppendError(plantdata.Name, $"Unable to find dead sprite"); }
 			if (plantdata.GrowthSprites.Count == 0) { AppendError(plantdata.Name, $"Unable to find growth sprites for plant {plantdata.Name}"); }
 			if (plantdata.FullyGrownSprite == null) { AppendError(plantdata.Name, $"Unable to find fully grown sprite"); }
-			
+
 
 
 			plantdata.WeedResistance = int.Parse(plat["weed_resistance"].ToString());
@@ -246,9 +247,9 @@ public class GeneratePlantSOs : EditorWindow
 					}
 				}
 			}
-			
-				
-			
+
+
+
 
 
 			//Creating/updating food prefabs
@@ -267,7 +268,7 @@ public class GeneratePlantSOs : EditorWindow
 					prefabVariant = PrefabUtility.InstantiatePrefab(prefabVariant) as GameObject;
 				}
 
-				
+
 
 				var itemAttr = prefabVariant.GetComponent<ItemAttributesV2>();
 
@@ -301,8 +302,8 @@ public class GeneratePlantSOs : EditorWindow
 						amounts.Add(((int)(Chemical.Value * 100)) * (plantdata.Potency / 100f));
 					}
 
-					newReagents.Reagents = reagents;
-					newReagents.Amounts = amounts;
+					//newReagents.Reagents = reagents;
+					//newReagents.Amounts = amounts;
 				}
 
 				plantdata.ProduceObject = PrefabUtility.SaveAsPrefabAsset(prefabVariant, @"Assets/Resources/Prefabs/Items/Botany/" + plantdata.Name + ".prefab");
@@ -328,11 +329,11 @@ public class GeneratePlantSOs : EditorWindow
 
 
 			//\\Logger.Log(plantdata.GrowthSprites.Count.ToString());
-			
+
 		}
 
 
-		
+
 
 		progressbarStep = 1f / PlantDictionary.Count;
 		progressbarState = 0;
@@ -382,7 +383,7 @@ public class GeneratePlantSOs : EditorWindow
 		progressbarState = 0;
 		foreach (var pant in PlantDictionary)
 		{
-			
+
 
 
 			DefaultPlantData defaultPlant = AssetDatabase.LoadMainAssetAtPath(@"Assets\Resources\ScriptableObjects\Plant default\" + pant.Value.plantData.Name + ".asset") as DefaultPlantData;
@@ -402,7 +403,7 @@ public class GeneratePlantSOs : EditorWindow
 
 			if (dictonaryErrors.ContainsKey(pant.Value.plantData.Name))
 			{
-				
+
 				if(mutationNameList.Contains(pant.Value.plantData.Name))
 				{
 					dictonaryErrors[pant.Value.plantData.Name] = $"Mutation {pant.Value.plantData.Name} has some missing sprites\n{dictonaryErrors[pant.Value.plantData.Name]}";
@@ -415,7 +416,7 @@ public class GeneratePlantSOs : EditorWindow
 				}
 			}
 		}
-		
+
 
 		EditorUtility.ClearProgressBar();
 		EditorUtility.DisplayDialog("Complete", "Generating default plant ScriptObjects complete", "Close");

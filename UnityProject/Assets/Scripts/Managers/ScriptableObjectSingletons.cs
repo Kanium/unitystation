@@ -1,4 +1,5 @@
 using UnityEngine;
+using Machines;
 
 /// <summary>
 /// In order for the SingletonScriptableObject to work, the singleton instance must
@@ -20,4 +21,9 @@ public class ScriptableObjectSingletons : MonoBehaviour
 	public CommonCooldowns CommonCooldowns;
 	public AmmoPrefabs AmmoPrefabs;
 	public UIActionSOSingleton UIActionSOSingleton;
+	public SpeechModManager SpeechModManager;
+	public MachinePartsItemTraits MachinePartsItemTraits;
+	public MachinePartsPrefabs MachinePartsPrefabs;
+	public SOAdminJobsList AdminJobsList;
+	public PoolConfig PoolConfig;
 }

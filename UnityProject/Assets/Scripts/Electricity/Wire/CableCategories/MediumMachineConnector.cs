@@ -4,38 +4,23 @@ using UnityEngine;
 using Mirror;
 
 
-public class MediumMachineConnector : NetworkBehaviour , ICheckedInteractable<PositionalHandApply>, IDeviceControl
+public class MediumMachineConnector : NetworkBehaviour, ICheckedInteractable<PositionalHandApply>
 {
-	private bool SelfDestruct = false;
-
-	public WireConnect RelatedWire; 
+	public WireConnect RelatedWire;
 	public PowerTypeCategory ApplianceType = PowerTypeCategory.MediumMachineConnector;
 	public HashSet<PowerTypeCategory> CanConnectTo = new HashSet<PowerTypeCategory>(){
 		PowerTypeCategory.StandardCable,
-		PowerTypeCategory.SMES,
-		PowerTypeCategory.SolarPanelController,
+		//PowerTypeCategory.SMES,
+		//PowerTypeCategory.SolarPanelController,
 	};
-
-	public void PotentialDestroyed(){
-		if (SelfDestruct) {
-			
-		}
-	}
 
 	public override void OnStartServer()
 	{
 		base.OnStartServer();
 		RelatedWire.InData.CanConnectTo = CanConnectTo;
 		RelatedWire.InData.Categorytype = ApplianceType;
-		RelatedWire.WireEndA = Connection.MachineConnect;
-		RelatedWire.WireEndB = Connection.Overlap;
-	}
-
-	//FIXME:
-	public void OnDestroy(){
-		SelfDestruct = true;
-	}
-	public void TurnOffCleanup (){
+		RelatedWire.InData.WireEndA = Connection.MachineConnect;
+		RelatedWire.InData.WireEndB = Connection.Overlap;
 	}
 
 	public bool WillInteract(PositionalHandApply interaction, NetworkSide side)
@@ -52,19 +37,13 @@ public class MediumMachineConnector : NetworkBehaviour , ICheckedInteractable<Po
 		Vector3Int worldPosInt = interaction.WorldPositionTarget.To2Int().To3Int();
 		MatrixInfo matrix = MatrixManager.AtPoint(worldPosInt, true);
 		var localPosInt = MatrixManager.WorldToLocalInt(worldPosInt, matrix);
-		if (matrix.Matrix != null)
-		{
-			if (!matrix.Matrix.IsClearUnderfloorConstruction(localPosInt, true))
-			{
-				return;
-			}
-		}
-		else
+
+		if (matrix.Matrix == null || !matrix.Matrix.IsClearUnderfloorConstruction(localPosInt, true))
 		{
 			return;
 		}
+
 		Spawn.ServerPrefab("Medium machine connector", gameObject.AssumedWorldPosServer());
 		Despawn.ServerSingle(gameObject);
 	}
 }
-

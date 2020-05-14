@@ -5,13 +5,12 @@ using Light2D;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Tilemaps;
-
 /// <summary>
 /// Behavior which indicates a matrix - a contiguous grid of tiles.
 ///
 /// If a matrix can move / rotate, the parent gameobject will have a MatrixMove component. Not this gameobject.
 /// </summary>
-public class Matrix : MonoBehaviour
+public class  Matrix : MonoBehaviour
 {
 	private MetaTileMap metaTileMap;
 	private MetaTileMap MetaTileMap => metaTileMap ? metaTileMap : metaTileMap = GetComponent<MetaTileMap>();
@@ -27,6 +26,12 @@ public class Matrix : MonoBehaviour
 	public MetaDataLayer MetaDataLayer => metaDataLayer;
 	private MetaDataLayer metaDataLayer;
 
+	public UnderFloorLayer UnderFloorLayer => underFloorLayer;
+	private UnderFloorLayer underFloorLayer;
+
+	public bool IsSpaceMatrix;
+	public bool IsMainStation;
+
 	public MatrixMove MatrixMove { get; private set; }
 
 	private TileChangeManager tileChangeManager;
@@ -40,11 +45,26 @@ public class Matrix : MonoBehaviour
 	public bool IsMovingServer => MatrixMove != null && MatrixMove.IsMovingServer;
 
 	/// <summary>
+	/// Matrix info that is provided via MatrixManager
+	/// </summary>
+	public MatrixInfo MatrixInfo { get; private set; }
+	/// <summary>
+	/// Is the matrix info correctly configured
+	/// </summary>
+	public bool MatrixInfoConfigured { get; private set; }
+
+	/// <summary>
+	/// Register your action here if the MatrixInfo has not been configured correctly yet.
+	/// The action will be called when it has been set up correctly and return the
+	/// correct MatrixInfo
+	/// </summary>
+	public UnityAction<MatrixInfo> OnConfigLoaded;
+
+	/// <summary>
 	/// Invoked when some serious collision/explosion happens.
 	/// Should make people fall and shake items a bit
 	/// </summary>
 	public EarthquakeEvent OnEarthquake = new EarthquakeEvent();
-
 	private void Awake()
 	{
 		initialOffset = Vector3Int.CeilToInt(gameObject.transform.position);
@@ -52,7 +72,7 @@ public class Matrix : MonoBehaviour
 		metaDataLayer = GetComponent<MetaDataLayer>();
 		MatrixMove = GetComponentInParent<MatrixMove>();
 		tileChangeManager = GetComponentInParent<TileChangeManager>();
-
+		underFloorLayer = GetComponentInChildren<UnderFloorLayer>();
 
 		OnEarthquake.AddListener( ( worldPos, magnitude ) =>
 		{
@@ -76,6 +96,11 @@ public class Matrix : MonoBehaviour
 		} );
 	}
 
+	void Start()
+	{
+		MatrixManager.RegisterMatrix(this, IsSpaceMatrix, IsMainStation);
+	}
+
 	public void CompressAllBounds()
 	{
 		foreach ( var tilemap in GetComponentsInChildren<Tilemap>() )
@@ -87,6 +112,13 @@ public class Matrix : MonoBehaviour
 		{
 			layer.RecalculateBounds();
 		}
+	}
+
+	public void ConfigureMatrixInfo(MatrixInfo matrixInfo)
+	{
+		MatrixInfo = matrixInfo;
+		MatrixInfoConfigured = true;
+		OnConfigLoaded?.Invoke(matrixInfo);
 	}
 
 	public bool IsPassableAt(Vector3Int position, bool isServer, bool includingPlayers = true, List<LayerType> excludeLayers = null, List<TileType> excludeTiles = null)
@@ -288,19 +320,103 @@ public class Matrix : MonoBehaviour
 		return (true);
 	}
 
-	public IEnumerable<ElectricalOIinheritance> GetElectricalConnections(Vector3Int position)
+	public List<IntrinsicElectronicData> GetElectricalConnections(Vector3Int position)
 	{
+		var list = ElectricalPool.GetFPCList();
 		if (ServerObjects != null)
 		{
-			return ServerObjects.Get(position)
-				.Select(x => x != null ? x.GetComponent<ElectricalOIinheritance>() : null)
-				.Where(x => x != null)
-				.Where(y => y.enabled);
+			var collection = ServerObjects.Get(position);
+			for (int i = collection.Count - 1; i >= 0; i--)
+			{
+				if (i < collection.Count && collection[i] != null
+				    && collection[i].ElectricalData != null &&
+				    collection[i].ElectricalData.InData != null)
+				{
+					list.Add(collection[i].ElectricalData.InData);
+				}
+			}
 		}
-		else
+		if (metaDataLayer.Get(position)?.ElectricalData != null)
 		{
-			return null;
+			foreach (var electricalMetaData in metaDataLayer.Get(position).ElectricalData)
+			{
+				list.Add(electricalMetaData.InData);
+			}
 		}
+		return (list);
+	}
+
+	public void AddElectricalNode(Vector3Int position, WireConnect wireConnect)
+	{
+		var metaData = metaDataLayer.Get(position, true);
+		var newdata = new ElectricalMetaData();
+		newdata.Initialise(wireConnect, metaData, position, this);
+		metaData.ElectricalData.Add(newdata);
+
+		UnderFloorElectricalSetTile(wireConnect.InData.WireEndA, wireConnect.InData.WireEndB,
+			wireConnect.InData.Categorytype, position, newdata);
+	}
+
+	public void AddElectricalNode(Vector3Int position, ElectricalCableTile electricalCableTile, bool AddTile = false)
+	{
+		var checkPos = position;
+		checkPos.z = 0;
+		var metaData = metaDataLayer.Get(checkPos, true);
+		var newdata = new ElectricalMetaData();
+		newdata.Initialise(electricalCableTile, metaData, position, this);
+		metaData.ElectricalData.Add(newdata);
+		if (AddTile)
+		{
+			if (electricalCableTile != null) {
+				if (UnderFloorLayer == null)
+				{
+					underFloorLayer = GetComponentInChildren<UnderFloorLayer>();
+				}
+				if (UnderFloorLayer != null)
+				{
+					UnderFloorLayer.SetTile(position, electricalCableTile, Matrix4x4.identity);
+				}
+			}
+		}
+	}
+
+	public void EditorAddElectricalNode(Vector3Int position, WireConnect wireConnect)
+	{
+		UnderFloorElectricalSetTile(wireConnect.InData.WireEndA, wireConnect.InData.WireEndB,
+			wireConnect.InData.Categorytype, position);
+	}
+
+	private void UnderFloorElectricalSetTile(Connection WireEndA, Connection WireEndB, PowerTypeCategory powerTypeCategory, Vector3Int position, ElectricalMetaData newdata = null )
+	{
+		ElectricalCableTile Tile = ElectricityFunctions.RetrieveElectricalTile( WireEndA,  WireEndB,  powerTypeCategory);
+		if (newdata != null)
+		{
+			newdata.RelatedTile = Tile;
+		}
+		if (Tile != null) {
+			if (UnderFloorLayer == null)
+			{
+				underFloorLayer = GetComponentInChildren<UnderFloorLayer>();
+			}
+			if (UnderFloorLayer != null)
+			{
+				UnderFloorLayer.SetTile(position, Tile, Matrix4x4.identity);
+			}
+		}
+	}
+
+	public MetaDataNode GetMetaDataNode(Vector3Int localPosition, bool createIfNotExists = true)
+	{
+		return (metaDataLayer.Get(localPosition, createIfNotExists));
+	}
+
+	public void RemoveUnderFloorTile(Vector3Int position, LayerTile tile)
+	{
+		if (UnderFloorLayer == null)
+		{
+			underFloorLayer = GetComponentInChildren<UnderFloorLayer>();
+		}
+		UnderFloorLayer.RemoveSpecifiedTile( position, tile);
 	}
 
 	//Visual debug

@@ -18,8 +18,6 @@ public class GUI_SeedExtractor : NetTab
 	[SerializeField]
 	private EmptyItemList seedList = null;
 	[SerializeField]
-	private NetColorChanger hullColor = null;
-	[SerializeField]
 	private NetButton backButton = null;
 	[SerializeField]
 	private NetLabel title = null;
@@ -29,14 +27,6 @@ public class GUI_SeedExtractor : NetTab
 	private string deniedMessage = "Bzzt.";
 	private bool inited = false;
 	private string selectedSeedType;
-
-	private void Start()
-	{
-		if (!CustomNetworkManager.Instance._isServer)
-		{
-			return;
-		}
-	}
 
 	protected override void InitServer()
 	{
@@ -57,6 +47,9 @@ public class GUI_SeedExtractor : NetTab
 		seedExtractor.UpdateEvent.AddListener(UpdateItems);
 	}
 
+	/// <summary>
+	/// Generates dictionary of seed packets used to populate GUI
+	/// </summary>
 	private void GenerateContentList()
 	{
 		if (!CustomNetworkManager.Instance._isServer)
@@ -93,7 +86,7 @@ public class GUI_SeedExtractor : NetTab
 	/// Updates GUI with changes to SeedExtractor
 	/// Could be optimized to only add/remove rather then rebuild the entire list
 	/// </summary>
-	public void UpdateItems()
+	private void UpdateItems()
 	{
 		GenerateContentList();
 		UpdateList();
@@ -136,65 +129,48 @@ public class GUI_SeedExtractor : NetTab
 		}
 	}
 
+	/// <summary>
+	/// Moves GUI into list of specific seeds
+	/// </summary>
+	/// <param name="seedType">Name of selected seed type</param>
 	public void SelectSeedType(string seedType)
 	{
-		title.SetValue = System.Threading.Thread.CurrentThread.CurrentCulture.TextInfo.ToTitleCase(seedType.ToLower());
-		icon.SetValue = seedType;
+		title.SetValueServer(System.Threading.Thread.CurrentThread.CurrentCulture.TextInfo.ToTitleCase(seedType.ToLower()));
+		icon.SetValueServer(seedType);
 		backButton.enabled = true;
 		selectedSeedType = seedType;
 		UpdateList();
 	}
 
+	/// <summary>
+	/// Moves GUI back to list of seed types
+	/// </summary>
 	public void Back()
 	{
-		title.SetValue = "Select Seed Packet";
-		icon.SetValue = null;
+		title.SetValueServer("Select Seed Packet");
+		icon.SetValueServer(null);
 		backButton.enabled = false;
 		selectedSeedType = null;
 		UpdateList();
 	}
 
-	public void DispenseSeedPacket(SeedPacket item)
+	/// <summary>
+	/// Spawn seed packet in world
+	/// </summary>
+	public void DispenseSeedPacket(SeedPacket seedPacket)
 	{
-		if (item == null || seedExtractor == null) return;
-		SeedPacket itemToSpawn = null;
-		foreach (var vendorItem in seedExtractorContent[item.name])
-		{
-			if (vendorItem == item)
-			{
-				itemToSpawn = item;
-				break;
-			}
-		}
+		if (!CanSell())	return;
+		seedExtractor.DispenseSeedPacket(seedPacket);
 
-		if (!CanSell(itemToSpawn))
-		{
-			return;
-		}
-
-		Vector3 spawnPos = seedExtractor.gameObject.RegisterTile().WorldPositionServer;
-		CustomNetTransform netTransform = itemToSpawn.GetComponent<CustomNetTransform>();
-		netTransform.AppearAtPosition(spawnPos);
-		netTransform.AppearAtPositionServer(spawnPos);
-		//var spawnedItem = Spawn.ServerPrefab(itemToSpawn.gameObject, spawnPos, seedExtractor.transform.parent).GameObject;
-		//something went wrong trying to spawn the item
-		//if (spawnedItem == null) return;
-
-		seedExtractorContent[itemToSpawn.name].Remove(itemToSpawn);
-		if(seedExtractorContent[itemToSpawn.name].Count == 0)
-		{
-			seedExtractorContent.Remove(itemToSpawn.name);
-		}
-
-		SendToChat($"{itemToSpawn.gameObject.ExpensiveName()} was dispensed from the seed extractor");
-
-
-		UpdateList();
 		allowSell = false;
 		StartCoroutine(VendorInputCoolDown());
 	}
 
-	private bool CanSell(SeedPacket itemToSpawn)
+	/// <summary>
+	/// Checks if cooldown has completed, shows message if it hasn't
+	/// </summary>
+	/// <returns>True if cooldown completed</returns>
+	private bool CanSell()
 	{
 		if (allowSell)
 		{
@@ -206,7 +182,7 @@ public class GUI_SeedExtractor : NetTab
 
 	private void SendToChat(string messageToSend)
 	{
-		Chat.AddLocalMsgToChat(messageToSend, seedExtractor.transform.position, seedExtractor?.gameObject);
+		Chat.AddLocalMsgToChat(messageToSend, seedExtractor.gameObject.RegisterTile().WorldPosition.To2Int(), seedExtractor?.gameObject);
 	}
 
 	private IEnumerator VendorInputCoolDown()
